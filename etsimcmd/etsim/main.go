@@ -42,6 +42,7 @@ func run(cmd *cobra.Command, args []string) error {
 	wg.Add(1)
 	go world.StartSimulation()
 	go world.DestroyCitiesAndAliens(&wg)
+	go world.DeployReserveAliens()
 	fmt.Printf("simulation started %c %c ...\n", alienEmoji, flyingSaucerEmoji)
 	wg.Wait()
 	fmt.Printf("simulation complete %c %c ...\n", alienEmoji, fireEmoji)

@@ -12,6 +12,7 @@ import (
 type World struct {
 	cities          map[string]*City
 	aliens          map[*Alien]struct{}
+	alienShip       map[*Alien]struct{}
 	citiesToDestroy chan *City
 	destroyedCities sync.Map
 	sync.Mutex
@@ -21,9 +22,11 @@ type World struct {
 // by the 'numAliens' parameter
 func New(numAliens int, worldMapPath string) *World {
 	cities := readMapFile(worldMapPath)
+	deployedAliens, reserveAliens := createAliens(numAliens, cities)
 	return &World{
 		cities:          cities,
-		aliens:          createAliens(numAliens, cities),
+		aliens:          deployedAliens,
+		alienShip:       reserveAliens,
 		citiesToDestroy: make(chan *City),
 	}
 }
@@ -32,9 +35,9 @@ func New(numAliens int, worldMapPath string) *World {
 // there are no aliens left. If two aliens land in one city, the aliens destroy each other as well as the city.
 func (w *World) StartSimulation() {
 	defer close(w.citiesToDestroy)
-	for i := 0; len(w.aliens) > 0 && i < 10000; i++ {
+	for i := 0; len(w.aliens)+len(w.alienShip) > 0 && i < 10000; i++ {
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
-		// w.Lock()
+		w.Lock()
 		for alien := range w.aliens {
 			if alien.current != nil {
 				currAlienNeighbors := alien.current.neighbors
@@ -58,7 +61,7 @@ func (w *World) StartSimulation() {
 				w.citiesToDestroy <- city
 			}
 		}
-		// w.Unlock()
+		w.Unlock()
 	}
 }
 
@@ -90,6 +93,29 @@ func (w *World) DestroyCitiesAndAliens(wg *sync.WaitGroup) {
 		delete(w.aliens, city.occupants[0])
 		delete(w.aliens, city.occupants[1])
 		delete(w.cities, city.name)
+	}
+}
+
+func (w *World) DeployReserveAliens() {
+	for {
+		for alien := range w.alienShip {
+			var currCity *City
+			var cityNames []string
+			w.Lock()
+			for city := range w.cities {
+				cityNames = append(cityNames, city)
+			}
+			currCity = w.cities[cityNames[rand.Intn(len(cityNames))]]
+			if currCity != nil {
+				alien.current = currCity
+				w.aliens[alien] = struct{}{}
+				delete(w.alienShip, alien)
+			}
+			w.Unlock()
+		}
+		if len(w.alienShip) == 0 {
+			break
+		}
 	}
 }
 
@@ -152,7 +178,8 @@ func getDirectionToNeighbor(current *City, neighborName string) string {
 }
 
 // createAliens creates the aliens and place them randomly on the map
-func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
+func createAliens(numAliens int, cities map[string]*City) (map[*Alien]struct{}, map[*Alien]struct{}) {
+	ship := make(map[*Alien]struct{})
 	aliens := make(map[*Alien]struct{}, numAliens)
 	cityNames := make([]string, 0, len(cities))
 	for cityName := range cities {
@@ -162,22 +189,26 @@ func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
 		cityNames[i], cityNames[j] = cityNames[j], cityNames[i]
 	})
 	for i := 0; i < numAliens; i++ {
-		var currCity *City
-		for _, cityName := range cityNames {
-			city := cities[cityName]
-			if !city.full {
-				currCity = city
-				break
-			}
-		}
+		currCity := findCityToInvade(cityNames, cities)
 		if currCity == nil {
-			break
+			ship[&Alien{id: i + 1}] = struct{}{}
+		} else {
+			idx := rand.Intn(2)
+			alien := &Alien{id: i + 1, current: currCity}
+			currCity.occupants[idx] = alien
+			aliens[alien] = struct{}{}
+			currCity.full = currCity.occupants[0] != nil && currCity.occupants[1] != nil
 		}
-		idx := rand.Intn(2)
-		alien := &Alien{id: i + 1, current: currCity}
-		currCity.occupants[idx] = alien
-		aliens[alien] = struct{}{}
-		currCity.full = currCity.occupants[0] != nil && currCity.occupants[1] != nil
 	}
-	return aliens
+	return aliens, ship
+}
+
+func findCityToInvade(cityNames []string, cities map[string]*City) *City {
+	for _, cityName := range cityNames {
+		city := cities[cityName]
+		if !city.full {
+			return city
+		}
+	}
+	return nil
 }
