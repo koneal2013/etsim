@@ -13,9 +13,9 @@ import (
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "etsim <numAliens>",
+		Use:   "etsim <numAliens> <worldMapPath>",
 		Short: "Simulate alien invasions on a map",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE:  run,
 	}
 	if err := cmd.Execute(); err != nil {
@@ -35,8 +35,9 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Error converting %s to int: %s\n", args[0], err)
 	}
+	worldMapPath := args[1]
 
-	world := etsimcmd.New(numAliens, "map.txt")
+	world := etsimcmd.New(numAliens, worldMapPath)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go world.StartSimulation()
