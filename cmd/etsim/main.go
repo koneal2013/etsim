@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 type City struct {
 	name      string
-	neighbors sync.Map
-	occupants [2]atomic.Pointer[Alien]
+	neighbors map[string]string
+	occupants [2]*Alien
+	full      bool
 }
 
 type Alien struct {
@@ -23,10 +23,11 @@ type Alien struct {
 }
 
 type World struct {
-	cities           sync.Map
-	aliens           sync.Map
-	numOfAliensAlive atomic.Int32
-	citiesToDestroy  chan *City
+	cities          map[string]*City
+	aliens          map[*Alien]struct{}
+	citiesToDestroy chan *City
+	destroyedCities sync.Map
+	sync.Mutex
 }
 
 func main() {
@@ -38,33 +39,30 @@ func main() {
 
 	// wait group for goroutines
 	wg := sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(2)
 
 	// Read in the map file
 	// Create the aliens and place them randomly on the map
 	// Run the simulation until all aliens are destroyed or have moved 10,000 times
 	cities := readMapFile("map.txt")
 	world := &World{
-		numOfAliensAlive: atomic.Int32{},
-		cities:           cities,
-		aliens:           createAliens(numAliens, cities),
-		citiesToDestroy:  make(chan *City),
+		cities:          cities,
+		aliens:          createAliens(numAliens, cities),
+		citiesToDestroy: make(chan *City),
 	}
-	world.numOfAliensAlive.Add(int32(numAliens))
-	go world.destroyCities(&wg)
-	world.startSimulation()
+	go world.destroyCitiesAndAliens(&wg)
+	go world.startSimulation(&wg)
 	wg.Wait()
 
 	// Print out the remaining cities and their neighboring cities
-	world.cities.Range(func(cityName, city any) bool {
+	fmt.Println("Remaining cities: ")
+	for cityName, city := range world.cities {
 		var neighborNames []string
-		city.(*City).neighbors.Range(func(direction, neighborName any) bool {
+		for direction, neighborName := range city.neighbors {
 			neighborNames = append(neighborNames, fmt.Sprintf("%s=%s", direction, neighborName))
-			return true
-		})
+		}
 		fmt.Printf("%s %s\n", cityName, strings.Join(neighborNames, " "))
-		return true
-	})
+	}
 }
 
 func (c *City) invade(alien *Alien) {
@@ -72,110 +70,104 @@ func (c *City) invade(alien *Alien) {
 	idx := alien.id % 2
 	// remove the alien from the city it currently occupies
 	if alien.current != nil {
-		alien.current.occupants[idx].Store(nil)
+		alien.current.occupants[idx] = nil
 	}
 
 	// invade the new city
-	c.occupants[idx].Store(alien)
+	c.occupants[idx] = alien
 	alien.current = c
 	return
 
 }
 
-func (w *World) startSimulation() {
+func (w *World) startSimulation(wg *sync.WaitGroup) {
+	defer wg.Done()
 	defer close(w.citiesToDestroy)
-	for i := 0; w.numOfAliensAlive.Load() > 0 && i < 10000; i++ {
+	for i := 0; len(w.aliens) > 0 && i < 10000; i++ {
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
-		w.aliens.Range(func(key, value any) bool {
-			alien := value.(*Alien)
+		w.Lock()
+		for alien := range w.aliens {
 			if alien.current != nil {
 				currAlienNeighbors := alien.current.neighbors
 				var neighborDirections []string
-				currAlienNeighbors.Range(func(key, value any) bool {
-					neighborDirections = append(neighborDirections, key.(string))
-					return true
-				})
+				for neighborDirection := range currAlienNeighbors {
+					neighborDirections = append(neighborDirections, neighborDirection)
+				}
 				if len(neighborDirections) == 0 {
-					// fmt.Println(fmt.Sprintf("Alien %d is trapped in %s", alien.id, alien.current.name))
-					return true
+					continue
 				}
 				newCityDirection := neighborDirections[rand.Intn(len(neighborDirections))]
-				newCityName, _ := currAlienNeighbors.Load(newCityDirection)
-				c, _ := w.cities.Load(newCityName)
-				if c == nil {
-					return true
+				newCityName, _ := currAlienNeighbors[newCityDirection]
+				city, ok := w.cities[newCityName]
+				if !ok {
+					continue
 				}
-				city, _ := c.(*City)
-				if city.occupants[0].Load() == nil || city.occupants[1].Load() == nil {
+				if city.occupants[0] == nil || city.occupants[1] == nil {
 					city.invade(alien)
-					return true
+					continue
 				}
-				w.initiateBattle(city)
+				w.citiesToDestroy <- city
 			}
-			return true
-		})
+		}
+		w.Unlock()
 	}
 }
 
-func createAliens(numAliens int, cities sync.Map) sync.Map {
-	aliens := sync.Map{}
+func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
+	aliens := make(map[*Alien]struct{}, numAliens)
+	cityNames := make([]string, 0, len(cities))
+	for cityName := range cities {
+		cityNames = append(cityNames, cityName)
+	}
 	for i := 0; i < numAliens; i++ {
-		var cityNames []string
-		cities.Range(func(key, value any) bool {
-			cityNames = append(cityNames, key.(string))
-			return true
-		})
-		cityName := cityNames[rand.Intn(len(cityNames))]
-		currCity, _ := cities.Load(cityName)
-		aliens.Store(i, &Alien{id: i, current: currCity.(*City)})
+		cityIdx := rand.Intn(len(cityNames))
+		cityName := cityNames[cityIdx]
+		currCity := cities[cityName]
+		alien := &Alien{id: i, current: currCity}
+		aliens[alien] = struct{}{}
 	}
 	return aliens
 }
 
-func (w *World) initiateBattle(city *City) {
-	w.aliens.Delete(city.occupants[0].Load().id)
-	w.aliens.Delete(city.occupants[1].Load().id)
-	w.citiesToDestroy <- city
-	w.numOfAliensAlive.Add(-2)
-}
-
-func (w *World) destroyCities(wg *sync.WaitGroup) {
+func (w *World) destroyCitiesAndAliens(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for city := range w.citiesToDestroy {
-		// function to range over neighboring cities and remove roads
-		f := func(key any, value any) bool {
-			nCity, ok := w.cities.Load(value)
-			if !ok {
-				return true
-			}
-			neighboringCity := nCity.(*City)
-
-			neighboringCity.neighbors.Range(func(key, value any) bool {
-				if value == city.name {
-					neighboringCity.neighbors.Delete(key)
-				}
-				return true
-			})
-			return true
+		_, alreadyDestroyed := w.destroyedCities.LoadOrStore(city.name, true)
+		if alreadyDestroyed {
+			// City has already been destroyed, skip it
+			continue
 		}
-		w.cities.Delete(city.name)
-		city.neighbors.Range(f)
 		fmt.Printf("%s has been destroyed by alien %d and alien %d!\n",
-			city.name, city.occupants[0].Load().id, city.occupants[1].Load().id)
-
+			city.name, city.occupants[0].id, city.occupants[1].id)
+		// function to range over neighboring cities and remove roads
+		for _, neighborName := range city.neighbors {
+			if neighbor, ok := w.cities[neighborName]; ok {
+				delete(neighbor.neighbors, getDirectionToNeighbor(neighbor, neighborName))
+			}
+		}
 		// Remove destroyed cities from aliens' current city
-		w.aliens.Range(func(key, value any) bool {
-			alien := value.(*Alien)
+		for alien := range w.aliens {
 			if alien.current != nil && alien.current.name == city.name {
 				alien.current = nil
 			}
-			return true
-		})
+		}
+		delete(w.aliens, city.occupants[0])
+		delete(w.aliens, city.occupants[1])
+		delete(w.cities, city.name)
 	}
 }
 
-func readMapFile(filename string) sync.Map {
-	cities := sync.Map{}
+func getDirectionToNeighbor(current *City, neighborName string) string {
+	for direction, name := range current.neighbors {
+		if name == neighborName {
+			return direction
+		}
+	}
+	return ""
+}
+
+func readMapFile(filename string) map[string]*City {
+	cities := make(map[string]*City)
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
@@ -190,7 +182,7 @@ func readMapFile(filename string) sync.Map {
 			continue
 		}
 		cityName := parts[0]
-		neighbors := sync.Map{}
+		neighbors := make(map[string]string)
 		for _, part := range parts[1:] {
 			dirCity := strings.Split(part, "=")
 			if len(dirCity) != 2 {
@@ -198,9 +190,9 @@ func readMapFile(filename string) sync.Map {
 			}
 			direction := dirCity[0]
 			neighborName := dirCity[1]
-			neighbors.Store(direction, neighborName)
+			neighbors[direction] = neighborName
 		}
-		cities.Store(cityName, &City{name: cityName, neighbors: neighbors})
+		cities[cityName] = &City{name: cityName, neighbors: neighbors}
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading file:", err)
