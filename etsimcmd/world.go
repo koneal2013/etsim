@@ -1,26 +1,13 @@
-package main
+package etsimcmd
 
 import (
 	"bufio"
 	"fmt"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 )
-
-type City struct {
-	name      string
-	neighbors map[string]string
-	occupants [2]*Alien
-	full      bool
-}
-
-type Alien struct {
-	id      int
-	current *City
-}
 
 type World struct {
 	cities          map[string]*City
@@ -30,61 +17,24 @@ type World struct {
 	sync.Mutex
 }
 
-func main() {
-	// Parse command-line arguments
-	if len(os.Args) < 2 {
-		os.Exit(1)
-	}
-	numAliens := atoi(os.Args[1])
-
-	// wait group for goroutines
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	// Read in the map file
-	// Create the aliens and place them randomly on the map
-	// Run the simulation until all aliens are destroyed or have moved 10,000 times
-	cities := readMapFile("map.txt")
-	world := &World{
+// New creates a new World struct and populates the cities defined in the 'worldMapPath' parameter with the number of aliens specified
+// by the 'numAliens' parameter
+func New(numAliens int, worldMapPath string) *World {
+	cities := readMapFile(worldMapPath)
+	return &World{
 		cities:          cities,
 		aliens:          createAliens(numAliens, cities),
 		citiesToDestroy: make(chan *City),
 	}
-	go world.destroyCitiesAndAliens(&wg)
-	world.startSimulation()
-	wg.Wait()
-
-	// Print out the remaining cities and their neighboring cities
-	fmt.Println("Remaining cities: ")
-	for cityName, city := range world.cities {
-		var neighborNames []string
-		for direction, neighborName := range city.neighbors {
-			neighborNames = append(neighborNames, fmt.Sprintf("%s=%s", direction, neighborName))
-		}
-		fmt.Printf("%s %s\n", cityName, strings.Join(neighborNames, " "))
-	}
 }
 
-func (c *City) invade(alien *Alien) {
-	// get the index of the alien to remove
-	idx := alien.id % 2
-	// remove the alien from the city it currently occupies
-	if alien.current != nil {
-		alien.current.occupants[idx] = nil
-	}
-
-	// invade the new city
-	c.occupants[idx] = alien
-	alien.current = c
-	return
-
-}
-
-func (w *World) startSimulation() {
+// StartSimulation simulates alien invasions by randomly moving each alien to a new city up to 10k times or until
+// there are no aliens left. If two aliens land in one city, the aliens destroy each other as well as the city.
+func (w *World) StartSimulation() {
 	defer close(w.citiesToDestroy)
 	for i := 0; len(w.aliens) > 0 && i < 10000; i++ {
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
-		w.Lock()
+		// w.Lock()
 		for alien := range w.aliens {
 			if alien.current != nil {
 				currAlienNeighbors := alien.current.neighbors
@@ -108,41 +58,11 @@ func (w *World) startSimulation() {
 				w.citiesToDestroy <- city
 			}
 		}
-		w.Unlock()
+		// w.Unlock()
 	}
 }
 
-func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
-	aliens := make(map[*Alien]struct{}, numAliens)
-	cityNames := make([]string, 0, len(cities))
-	for cityName := range cities {
-		cityNames = append(cityNames, cityName)
-	}
-	rand.Shuffle(len(cityNames), func(i, j int) {
-		cityNames[i], cityNames[j] = cityNames[j], cityNames[i]
-	})
-	for i := 0; i < numAliens; i++ {
-		var currCity *City
-		for _, cityName := range cityNames {
-			city := cities[cityName]
-			if !city.full {
-				currCity = city
-				break
-			}
-		}
-		if currCity == nil {
-			break
-		}
-		idx := rand.Intn(2)
-		alien := &Alien{id: i, current: currCity}
-		currCity.occupants[idx] = alien
-		aliens[alien] = struct{}{}
-		currCity.full = currCity.occupants[0] != nil && currCity.occupants[1] != nil
-	}
-	return aliens
-}
-
-func (w *World) destroyCitiesAndAliens(wg *sync.WaitGroup) {
+func (w *World) DestroyCitiesAndAliens(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for city := range w.citiesToDestroy {
 		_, alreadyDestroyed := w.destroyedCities.LoadOrStore(city.name, true)
@@ -173,18 +93,23 @@ func (w *World) destroyCitiesAndAliens(wg *sync.WaitGroup) {
 	}
 }
 
-func getDirectionToNeighbor(current *City, neighborName string) string {
-	for direction, name := range current.neighbors {
-		if name == neighborName {
-			return direction
+// PrintRemainingCities prints the cities that are remaining after the simulation has completed to standard output
+func (w *World) PrintRemainingCities() {
+	// Print out the remaining cities and their neighboring cities
+	fmt.Println("Remaining cities: ")
+	for cityName, city := range w.cities {
+		var neighborNames []string
+		for direction, neighborName := range city.neighbors {
+			neighborNames = append(neighborNames, fmt.Sprintf("%s=%s", direction, neighborName))
 		}
+		fmt.Printf("%s %s\n", cityName, strings.Join(neighborNames, " "))
 	}
-	return ""
 }
 
-func readMapFile(filename string) map[string]*City {
+// readMapFile Reads in the map file using the worldMapPath parameter passed to the New function
+func readMapFile(worldMapPath string) map[string]*City {
 	cities := make(map[string]*City)
-	file, err := os.Open(filename)
+	file, err := os.Open(worldMapPath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		os.Exit(1)
@@ -217,11 +142,42 @@ func readMapFile(filename string) map[string]*City {
 	return cities
 }
 
-func atoi(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		fmt.Printf("Error converting %s to int: %s\n", s, err)
-		os.Exit(1)
+func getDirectionToNeighbor(current *City, neighborName string) string {
+	for direction, name := range current.neighbors {
+		if name == neighborName {
+			return direction
+		}
 	}
-	return i
+	return ""
+}
+
+// createAliens creates the aliens and place them randomly on the map
+func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
+	aliens := make(map[*Alien]struct{}, numAliens)
+	cityNames := make([]string, 0, len(cities))
+	for cityName := range cities {
+		cityNames = append(cityNames, cityName)
+	}
+	rand.Shuffle(len(cityNames), func(i, j int) {
+		cityNames[i], cityNames[j] = cityNames[j], cityNames[i]
+	})
+	for i := 0; i < numAliens; i++ {
+		var currCity *City
+		for _, cityName := range cityNames {
+			city := cities[cityName]
+			if !city.full {
+				currCity = city
+				break
+			}
+		}
+		if currCity == nil {
+			break
+		}
+		idx := rand.Intn(2)
+		alien := &Alien{id: i + 1, current: currCity}
+		currCity.occupants[idx] = alien
+		aliens[alien] = struct{}{}
+		currCity.full = currCity.occupants[0] != nil && currCity.occupants[1] != nil
+	}
+	return aliens
 }
