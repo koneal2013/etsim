@@ -6,27 +6,34 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/spf13/cobra"
+
 	"github.com/koneal2013/etsim/etsimcmd"
 )
 
 func main() {
-	os.Exit(run())
+	cmd := &cobra.Command{
+		Use:   "etsim <numAliens>",
+		Short: "Simulate alien invasions on a map",
+		Args:  cobra.ExactArgs(1),
+		RunE:  run,
+	}
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
-func run() int {
+func run(cmd *cobra.Command, args []string) error {
 	const (
-		exitCodeOK    = 0
-		exitCodeError = 1
+		alienEmoji        = '👽'
+		flyingSaucerEmoji = '🛸'
+		fireEmoji         = '🔥'
 	)
 	// Parse command-line arguments
-	if len(os.Args) < 2 {
-		os.Exit(exitCodeError)
-	}
-
-	numAliens, err := strconv.Atoi(os.Args[1])
+	numAliens, err := strconv.Atoi(args[0])
 	if err != nil {
-		fmt.Printf("Error converting %s to int: %s\n", os.Args[1], err)
-		os.Exit(exitCodeError)
+		return fmt.Errorf("Error converting %s to int: %s\n", args[0], err)
 	}
 
 	world := etsimcmd.New(numAliens, "map.txt")
@@ -34,9 +41,9 @@ func run() int {
 	wg.Add(1)
 	go world.StartSimulation()
 	go world.DestroyCitiesAndAliens(&wg)
-	fmt.Printf("simulation started %c %c ...\n", '👽', '🛸')
+	fmt.Printf("simulation started %c %c ...\n", alienEmoji, flyingSaucerEmoji)
 	wg.Wait()
-	fmt.Printf("simulation complete %c %c ...\n", '👽', '🔥')
+	fmt.Printf("simulation complete %c %c ...\n", alienEmoji, fireEmoji)
 	world.PrintRemainingCities()
-	return exitCodeOK
+	return nil
 }
