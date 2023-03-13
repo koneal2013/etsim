@@ -39,7 +39,7 @@ func main() {
 
 	// wait group for goroutines
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 
 	// Read in the map file
 	// Create the aliens and place them randomly on the map
@@ -51,7 +51,7 @@ func main() {
 		citiesToDestroy: make(chan *City),
 	}
 	go world.destroyCitiesAndAliens(&wg)
-	go world.startSimulation(&wg)
+	world.startSimulation()
 	wg.Wait()
 
 	// Print out the remaining cities and their neighboring cities
@@ -80,8 +80,7 @@ func (c *City) invade(alien *Alien) {
 
 }
 
-func (w *World) startSimulation(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (w *World) startSimulation() {
 	defer close(w.citiesToDestroy)
 	for i := 0; len(w.aliens) > 0 && i < 10000; i++ {
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
@@ -119,12 +118,26 @@ func createAliens(numAliens int, cities map[string]*City) map[*Alien]struct{} {
 	for cityName := range cities {
 		cityNames = append(cityNames, cityName)
 	}
+	rand.Shuffle(len(cityNames), func(i, j int) {
+		cityNames[i], cityNames[j] = cityNames[j], cityNames[i]
+	})
 	for i := 0; i < numAliens; i++ {
-		cityIdx := rand.Intn(len(cityNames))
-		cityName := cityNames[cityIdx]
-		currCity := cities[cityName]
+		var currCity *City
+		for _, cityName := range cityNames {
+			city := cities[cityName]
+			if !city.full {
+				currCity = city
+				break
+			}
+		}
+		if currCity == nil {
+			break
+		}
+		idx := rand.Intn(2)
 		alien := &Alien{id: i, current: currCity}
+		currCity.occupants[idx] = alien
 		aliens[alien] = struct{}{}
+		currCity.full = currCity.occupants[0] != nil && currCity.occupants[1] != nil
 	}
 	return aliens
 }
@@ -135,6 +148,9 @@ func (w *World) destroyCitiesAndAliens(wg *sync.WaitGroup) {
 		_, alreadyDestroyed := w.destroyedCities.LoadOrStore(city.name, true)
 		if alreadyDestroyed {
 			// City has already been destroyed, skip it
+			continue
+		}
+		if city.occupants[0] == nil || city.occupants[1] == nil {
 			continue
 		}
 		fmt.Printf("%s has been destroyed by alien %d and alien %d!\n",
