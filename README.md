@@ -7,7 +7,7 @@ ETSim is a simple command-line simulation game that allows you to simulate an al
 To install ETSim, you need to have Go installed on your system. Once you have installed Go, you can download and install ETSim with the following command:
 
 ```bash
-go get github.com/koneal2013/etsim/etsimcmd
+git clone https://github.com/koneal2013/etsim.git
 ```
 
 This will download and install the ETSim command-line tool.
@@ -58,7 +58,6 @@ I made the following assumptions regarding the assignment:
 * The number of aliens that can be spawned for a simulation must be greater than 0 and less than or equal to 65535.
 * Trapped aliens are considered dead and removed from active deployment.
 * Only two aliens can be engaged in a fight in a particular city.
-* 
 
 
 
