@@ -64,9 +64,7 @@ func (w *World) StartSimulation() {
 				}
 
 				if len(neighborDirections) == 0 {
-					w.Lock()
-					delete(w.aliens, alien)
-					w.Unlock()
+					w.deadAliens = append(w.deadAliens, alien)
 
 					continue
 				}
@@ -103,7 +101,7 @@ func (w *World) StartSimulation() {
 			w.Unlock()
 		}
 
-		if allMoved || len(w.cities) == 0 {
+		if allMoved || len(w.cities) == 0 || (uint16(len(w.deadAliens)) == w.startingAlienCount) {
 			break
 		}
 	}
@@ -137,14 +135,10 @@ func (w *World) DestroyCitiesAndAliens(wg *sync.WaitGroup) {
 			}
 		}
 
-		w.Lock()
-		// Remove destroyed cities from aliens' current city
-		for alien := range w.aliens {
-			if alien.current != nil && alien.current.name == city.name {
-				alien.current = nil
-			}
-		}
 		w.deadAliens = append(w.deadAliens, city.occupants[0], city.occupants[1])
+
+		w.Lock()
+
 		delete(w.cities, city.name)
 
 		w.Unlock()

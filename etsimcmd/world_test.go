@@ -115,7 +115,8 @@ func TestWorld_StartSimulation(t *testing.T) {
 	}
 
 	// assert that all deployed aliens are dead
-	if len(world.aliens) > 0 {
-		t.Errorf("Expected all deployed aliens to be dead, but %d deployed aliens remain alive", len(world.aliens))
+	if len(world.deadAliens) != 2 {
+		t.Errorf("Expected all deployed aliens to be dead, but %d "+
+			"deployed aliens remain alive", len(world.aliens)-len(world.deadAliens))
 	}
 }
