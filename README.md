@@ -8,10 +8,17 @@ To install ETSim, you need to have Go installed on your system. Once you have in
 
 ```bash
 go get github.com/koneal2013/etsim/etsimcmd
-make start
 ```
 
 This will download and install the ETSim command-line tool.
+
+You can run ETSim with the following command:
+
+```bash
+make start
+```
+
+This will start ETSim with the default values for `numOfAliens` and `worldMapPath`
 
 ## Usage
 
