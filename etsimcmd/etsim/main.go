@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -12,16 +11,23 @@ import (
 )
 
 const (
-	numOfArgsExpected = 2
+	defaultNumOfAliens = 10
+)
+
+var (
+	numOfAliens  uint16
+	worldMapPath string
 )
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "etsim <numAliens> <worldMapPath>",
+		Use:   "etsim [flags]",
 		Short: "Simulate alien invasions on a map",
-		Args:  cobra.ExactArgs(numOfArgsExpected),
 		RunE:  run,
 	}
+	cmd.Flags().StringVarP(&worldMapPath, "worldMapPath", "m", "map.txt", "path to world map")
+	cmd.Flags().Uint16VarP(&numOfAliens, "numOfAliens", "n", defaultNumOfAliens, "number of aliens")
+
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -36,19 +42,11 @@ func run(cmd *cobra.Command, args []string) error {
 		errorEmoji        = '🚨'
 	)
 	// Parse command-line arguments
-	numAliens, err := strconv.Atoi(args[0])
-
-	if err != nil {
-		return fmt.Errorf("Error converting %s to int: %s\n", args[0], err)
-	}
-
-	if numAliens <= 0 {
+	if numOfAliens <= 0 {
 		return fmt.Errorf("%c numAliens must be greater than 0 to run simulation", errorEmoji)
 	}
 
-	worldMapPath := args[1]
-
-	world := etsimcmd.New(uint16(numAliens), worldMapPath)
+	world := etsimcmd.New(numOfAliens, worldMapPath)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
