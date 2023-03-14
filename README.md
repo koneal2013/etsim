@@ -12,7 +12,7 @@ git clone https://github.com/koneal2013/etsim.git
 
 This will download and install the ETSim command-line tool.
 
-You can run ETSim with the following command:
+Change to the `etsim` (project root) directory, then run ETSim with the following command:
 
 ```bash
 make start
