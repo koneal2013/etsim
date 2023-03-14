@@ -94,7 +94,14 @@ linters:
   disable:
     - ifshort
     - scopelint
+    - forbidigo
+    - nestif
+    - gocognit
+    - funlen
+    - testpackage
     - nosnakecase
+    - gci
+    - gofumpt
   # Enable presets.
   # https://golangci-lint.run/usage/linters
   presets:

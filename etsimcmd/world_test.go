@@ -80,6 +80,7 @@ func TestNew(t *testing.T) {
 	if len(w.aliens) != 2 {
 		t.Errorf("Expected 2 aliens, but got %d", len(w.aliens))
 	}
+
 	if len(w.cities) != 4 {
 		t.Errorf("Expected 4 cities, but got %d", len(w.cities))
 	}

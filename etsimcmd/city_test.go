@@ -16,15 +16,18 @@ func TestCityInvade(t *testing.T) {
 
 	// Test invading an empty city
 	city.invade(alien1)
+
 	if city.occupants[1] != alien1 {
 		t.Errorf("Expected alien1 to occupy the city, but got %v", city.occupants[0])
 	}
+
 	if alien1.current != city {
 		t.Errorf("Expected alien1 to be in testCity, but it's in %v", alien1.current)
 	}
 
 	// Test invading a city with one alien already present
 	city.invade(alien2)
+
 	if !city.full {
 		t.Errorf("Expected city to be full, but it's not")
 	}
