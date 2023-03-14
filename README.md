@@ -20,12 +20,18 @@ make start
 
 This will start ETSim with the default values for `numOfAliens` and `worldMapPath`
 
+Run the following command to produce an executable in the current working directory:
+
+```bash
+make build
+```
+
 ## Usage
 
 Once you have installed ETSim, you can run it from the command line with the following command:
 
 ```bash
-etsim [flags]
+./etsim [flags]
 ```
 
 The following flags are available:
