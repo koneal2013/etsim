@@ -10,11 +10,13 @@ import (
 )
 
 type World struct {
-	cities          map[string]*City
-	aliens          map[*Alien]struct{}
-	alienShip       map[*Alien]struct{}
-	citiesToDestroy chan *City
-	destroyedCities sync.Map
+	cities             map[string]*City
+	aliens             map[*Alien]struct{}
+	alienShip          map[*Alien]struct{}
+	deadAliens         []*Alien
+	citiesToDestroy    chan *City
+	destroyedCities    sync.Map
+	startingAlienCount uint16
 	sync.Mutex
 }
 
@@ -25,10 +27,11 @@ func New(numAliens uint16, worldMapPath string) *World {
 	deployedAliens, reserveAliens := createAliens(numAliens, cities)
 
 	return &World{
-		cities:          cities,
-		aliens:          deployedAliens,
-		alienShip:       reserveAliens,
-		citiesToDestroy: make(chan *City),
+		startingAlienCount: numAliens,
+		cities:             cities,
+		aliens:             deployedAliens,
+		alienShip:          reserveAliens,
+		citiesToDestroy:    make(chan *City),
 	}
 }
 
@@ -41,9 +44,7 @@ func (w *World) StartSimulation() {
 
 	defer close(w.citiesToDestroy)
 
-	for i := 0; (len(w.aliens) + len(w.alienShip)) > 0; i++ {
-		updatedAliens := make(map[*Alien]struct{})
-
+	for i := 0; uint16(len(w.deadAliens)) <= w.startingAlienCount; i++ {
 		var allMoved bool
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
 		for alien := range w.aliens {
@@ -84,8 +85,6 @@ func (w *World) StartSimulation() {
 				if city.occupants[0] == nil || city.occupants[1] == nil {
 					city.invade(alien)
 
-					updatedAliens[alien] = struct{}{}
-
 					alien.moves++
 					if alien.moves >= maxAlienMoves {
 						allMoved = true
@@ -103,14 +102,6 @@ func (w *World) StartSimulation() {
 
 			w.Unlock()
 		}
-
-		w.Lock()
-
-		for alien := range updatedAliens {
-			w.aliens[alien] = struct{}{}
-		}
-
-		w.Unlock()
 
 		if allMoved || len(w.cities) == 0 {
 			break
@@ -153,9 +144,7 @@ func (w *World) DestroyCitiesAndAliens(wg *sync.WaitGroup) {
 				alien.current = nil
 			}
 		}
-
-		delete(w.aliens, city.occupants[0])
-		delete(w.aliens, city.occupants[1])
+		w.deadAliens = append(w.deadAliens, city.occupants[0], city.occupants[1])
 		delete(w.cities, city.name)
 
 		w.Unlock()
