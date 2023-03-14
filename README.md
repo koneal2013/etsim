@@ -49,6 +49,19 @@ The game begins by spawning a number of aliens on the map. Each alien is randoml
 
 As the game progresses, the aliens will destroy cities and fight each other, until either all of the aliens have moved 10,000 times, all the aliens have been destroyed or there are no more cities left on the map.
 
+## Assumptions
+
+I made the following assumptions regarding the assignment:
+
+* When spawning the aliens, if all the cities in the map are currently occupied and there are aliens that haven't been placed in a city, those aliens stay aboard the "mother ship" until there is a city with space available.
+* City names will contain only string characters.
+* The number of aliens that can be spawned for a simulation must be greater than 0 and less than or equal to 65535.
+* Trapped aliens are considered dead and removed from active deployment.
+* Only two aliens can be engaged in a fight in a particular city.
+* 
+
+
+
 ## Contact
 
 Please feel free to email me at [koneal2013@gmail.com](mailto:koneal2013@gmail.com) with questions regarding my solution.

@@ -10,12 +10,11 @@ import (
 )
 
 type World struct {
-	cities             map[string]*City
-	aliens             map[*Alien]struct{}
-	alienShip          map[*Alien]struct{}
-	citiesToDestroy    chan *City
-	destroyedCities    sync.Map
-	startingAlienCount uint16
+	cities          map[string]*City
+	aliens          map[*Alien]struct{}
+	alienShip       map[*Alien]struct{}
+	citiesToDestroy chan *City
+	destroyedCities sync.Map
 	sync.Mutex
 }
 
@@ -26,11 +25,10 @@ func New(numAliens uint16, worldMapPath string) *World {
 	deployedAliens, reserveAliens := createAliens(numAliens, cities)
 
 	return &World{
-		startingAlienCount: numAliens,
-		cities:             cities,
-		aliens:             deployedAliens,
-		alienShip:          reserveAliens,
-		citiesToDestroy:    make(chan *City),
+		cities:          cities,
+		aliens:          deployedAliens,
+		alienShip:       reserveAliens,
+		citiesToDestroy: make(chan *City),
 	}
 }
 
