@@ -22,7 +22,7 @@ var (
 func main() {
 	cmd := &cobra.Command{
 		Use: "etsim [flags]",
-		Short: `TSim is a simple command-line simulation game that allows you to 
+		Short: `ETSim is a simple command-line simulation game that allows you to 
 		simulate an alien invasion on a map of cities. The game is written 
 		in Go and is run entirely from the command line.`,
 		RunE: run,
