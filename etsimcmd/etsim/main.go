@@ -22,9 +22,8 @@ var (
 func main() {
 	cmd := &cobra.Command{
 		Use: "etsim [flags]",
-		Short: `ETSim is a simple command-line simulation game that allows you to 
-		simulate an alien invasion on a map of cities. The game is written 
-		in Go and is run entirely from the command line.`,
+		Long: "ETSim is a simple command-line simulation game that allows you to simulate an alien invasion on a " +
+			"\nmap of cities. The game is written in Go and is run entirely from the command line.",
 		RunE: run,
 	}
 	cmd.Flags().StringVarP(&worldMapPath, "worldMapPath", "m", "map.txt", "path to world map")
