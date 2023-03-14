@@ -47,7 +47,7 @@ The following flags are available:
 
 The game begins by spawning a number of aliens on the map. Each alien is randomly placed in a city. The aliens then move around the map, randomly choosing neighboring cities to move to. If two aliens end up in the same city, they will fight, and both aliens will be destroyed, along with the city they were in.
 
-As the game progresses, the aliens will destroy cities and fight each other, until either all of the aliens have moved 10,000 times, have been destroyed or there are no more cities left on the map.
+As the game progresses, the aliens will destroy cities and fight each other, until either all of the aliens have moved 10,000 times, all the aliens have been destroyed or there are no more cities left on the map.
 
 ## Contact
 
