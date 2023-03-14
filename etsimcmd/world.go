@@ -53,6 +53,7 @@ func (w *World) StartSimulation() {
 				if !alien.alive {
 					delete(w.aliens, alien)
 					w.Unlock()
+
 					continue
 				}
 
@@ -292,6 +293,7 @@ func createAliens(numAliens uint16, cities map[string]*City) (map[*Alien]struct{
 	for i := uint16(0); i < numAliens; i++ {
 		currCity := findCityToInvade(cityNames, cities)
 		alien := &Alien{id: i + 1, alive: true}
+
 		if currCity == nil {
 			ship[alien] = struct{}{}
 		} else {
