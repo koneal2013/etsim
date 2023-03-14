@@ -13,7 +13,6 @@ type World struct {
 	cities             map[string]*City
 	aliens             map[*Alien]struct{}
 	alienShip          map[*Alien]struct{}
-	deadAliens         []*Alien
 	citiesToDestroy    chan *City
 	destroyedCities    sync.Map
 	startingAlienCount uint16
@@ -44,11 +43,21 @@ func (w *World) StartSimulation() {
 
 	defer close(w.citiesToDestroy)
 
-	for i := 0; uint16(len(w.deadAliens)) <= w.startingAlienCount; i++ {
+	for i := 0; len(w.aliens)+len(w.alienShip) > 0; i++ {
 		var allMoved bool
 		// Move each alien to a neighboring city. If the city has more than one alien occupant, start a battle
 		for alien := range w.aliens {
 			if alien.current != nil {
+				w.Lock()
+
+				if !alien.alive {
+					delete(w.aliens, alien)
+					w.Unlock()
+					continue
+				}
+
+				w.Unlock()
+
 				if alien.current.full {
 					w.citiesToDestroy <- alien.current
 
@@ -64,7 +73,7 @@ func (w *World) StartSimulation() {
 				}
 
 				if len(neighborDirections) == 0 {
-					w.deadAliens = append(w.deadAliens, alien)
+					alien.alive = false
 
 					continue
 				}
@@ -101,7 +110,7 @@ func (w *World) StartSimulation() {
 			w.Unlock()
 		}
 
-		if allMoved || len(w.cities) == 0 || (uint16(len(w.deadAliens)) == w.startingAlienCount) {
+		if allMoved || len(w.cities) == 0 || len(w.aliens) == 0 {
 			break
 		}
 	}
@@ -135,10 +144,11 @@ func (w *World) DestroyCitiesAndAliens(wg *sync.WaitGroup) {
 			}
 		}
 
-		w.deadAliens = append(w.deadAliens, city.occupants[0], city.occupants[1])
-
 		w.Lock()
-
+		// kill the aliens
+		city.occupants[0].alive = false
+		city.occupants[1].alive = false
+		// destroy the city
 		delete(w.cities, city.name)
 
 		w.Unlock()
@@ -281,10 +291,10 @@ func createAliens(numAliens uint16, cities map[string]*City) (map[*Alien]struct{
 
 	for i := uint16(0); i < numAliens; i++ {
 		currCity := findCityToInvade(cityNames, cities)
+		alien := &Alien{id: i + 1, alive: true}
 		if currCity == nil {
-			ship[&Alien{id: i + 1}] = struct{}{}
+			ship[alien] = struct{}{}
 		} else {
-			alien := &Alien{id: i + 1}
 			currCity.invade(alien)
 			aliens[alien] = struct{}{}
 		}

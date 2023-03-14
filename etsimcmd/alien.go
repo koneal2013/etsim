@@ -4,4 +4,5 @@ type Alien struct {
 	current *City
 	id      uint16
 	moves   uint16
+	alive   bool
 }
