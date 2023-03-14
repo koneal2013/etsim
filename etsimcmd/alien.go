@@ -1,6 +1,7 @@
 package etsimcmd
 
 type Alien struct {
-	id      int
 	current *City
+	id      uint16
+	moves   uint16
 }

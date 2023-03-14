@@ -29,15 +29,19 @@ func run(cmd *cobra.Command, args []string) error {
 		alienEmoji        = '👽'
 		flyingSaucerEmoji = '🛸'
 		fireEmoji         = '🔥'
+		errorEmoji        = '🚨'
 	)
 	// Parse command-line arguments
 	numAliens, err := strconv.Atoi(args[0])
 	if err != nil {
 		return fmt.Errorf("Error converting %s to int: %s\n", args[0], err)
 	}
+	if numAliens <= 0 {
+		return fmt.Errorf("%c numAliens must be greater than 0 to run simulation", errorEmoji)
+	}
 	worldMapPath := args[1]
 
-	world := etsimcmd.New(numAliens, worldMapPath)
+	world := etsimcmd.New(uint16(numAliens), worldMapPath)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go world.StartSimulation()
