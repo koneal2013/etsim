@@ -1,4 +1,4 @@
-# ETSim 👽 🛸 
+# ETSim 👽 🛸
 
 ETSim is a simple command-line simulation game that allows you to simulate an alien invasion on a map of cities. The game is written in Go and is run entirely from the command line.
 
@@ -8,6 +8,7 @@ To install ETSim, you need to have Go installed on your system. Once you have in
 
 ```bash
 go get github.com/koneal2013/etsim/etsimcmd
+make start
 ```
 
 This will download and install the ETSim command-line tool.
@@ -24,6 +25,16 @@ The following flags are available:
 
 * `-n`: The number of aliens to be spawned. (default 10)
 * `-m`: The path to the map file. (default "map.txt")
+* `-h`: Help for etsim
+
+## Makefile
+
+* `make test`: Runs all tests in the project using the `go test` command.
+* `make start`: Cleans the project, builds it, and runs the main program with any arguments passed in using the `./etsim $(ARGS)` command. The `ARGS` variable can be set to pass any desired arguments.
+* `make build`: Runs the tests using the `make test` command, then runs the `golangci-lint run` command to perform a static analysis of the code, and finally builds the program using the `go build` command.
+* `make clean`: Cleans the project using the `go clean -i` command.
+* `make cover`: Runs all tests and generates a coverage report in the `.coverage` directory using the `go test -v -cover ./... -coverprofile .coverage/coverage.out` and `go tool cover -html=.coverage/coverage.out -o .coverage/coverage.html` commands.
+* `make covero`: Runs the `make cover` command and opens the generated coverage report in the default browser using the `open .coverage/coverage.html` command.
 
 ## Gameplay
 
