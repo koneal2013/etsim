@@ -1,15 +1,16 @@
 package etsimcmd
 
 import (
+	"sync"
 	"testing"
 )
 
 func TestNewWorld(t *testing.T) {
-	numAliens := 10
+	numAliens := uint16(10)
 	worldMapPath := "test_map.txt"
 	world := New(numAliens, worldMapPath)
 
-	if len(world.aliens)+len(world.alienShip) != numAliens {
+	if uint16(len(world.aliens)+len(world.alienShip)) != numAliens {
 		t.Errorf("Expected %d aliens, but got %d", numAliens, len(world.aliens))
 	}
 
@@ -33,7 +34,7 @@ func TestReadMapFile(t *testing.T) {
 }
 
 func TestCreateAliens(t *testing.T) {
-	numAliens := 10
+	numAliens := uint16(10)
 	cities := map[string]*City{
 		"City 1": {name: "City 1", occupants: [2]*Alien{nil, nil}},
 		"City 2": {name: "City 2", occupants: [2]*Alien{nil, nil}},
@@ -41,7 +42,7 @@ func TestCreateAliens(t *testing.T) {
 
 	aliens, reserveAliens := createAliens(numAliens, cities)
 
-	if (len(aliens)+len(reserveAliens) != numAliens) && len(aliens) > 0 {
+	if len(aliens)+len(reserveAliens) != int(numAliens) && len(aliens) > 0 {
 		t.Errorf("Expected %d aliens, but got %d", numAliens, len(aliens)+len(reserveAliens))
 	}
 
@@ -52,23 +53,24 @@ func TestCreateAliens(t *testing.T) {
 	}
 }
 
-func TestGetDirectionToNeighbor(t *testing.T) {
-	current := &City{
-		name: "Test City",
-		neighbors: map[string]string{
-			"north": "Neighbor City",
-			"south": "Another City",
-		},
+func TestOppositeDirection(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"north", "south"},
+		{"south", "north"},
+		{"east", "west"},
+		{"west", "east"},
+		{"", ""},
+		{"invalid", ""},
 	}
 
-	direction := getDirectionToNeighbor(current, "Neighbor City")
-	if direction != "north" {
-		t.Errorf("Expected direction 'north', but got '%s'", direction)
-	}
-
-	direction = getDirectionToNeighbor(current, "Nonexistent City")
-	if direction != "" {
-		t.Errorf("Expected empty string, but got '%s'", direction)
+	for _, test := range tests {
+		result := oppositeDirection(test.input)
+		if result != test.expected {
+			t.Errorf("oppositeDirection(%s) = %s; expected %s", test.input, result, test.expected)
+		}
 	}
 }
 
@@ -84,19 +86,35 @@ func TestNew(t *testing.T) {
 }
 
 func TestWorld_StartSimulation(t *testing.T) {
-	// Test simulation with 2 aliens and a small map
-	w := New(2, "test_map.txt")
-	w.StartSimulation()
-	// Verify that all aliens are in a city
-	for alien := range w.aliens {
-		if alien.current == nil {
-			t.Error("Alien is not in a city")
-		}
+	world := New(2, "test_map.txt")
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	// run simulation in separate goroutine
+	go func() {
+		world.StartSimulation()
+		wg.Done()
+	}()
+
+	go func() {
+		world.DestroyCitiesAndAliens(&wg)
+	}()
+
+	go func() {
+		world.DeployReserveAliens()
+		wg.Done()
+	}()
+
+	// wait for simulation to finish
+	wg.Wait()
+
+	// assert that all reserve aliens have been deployed
+	if len(world.alienShip) > 0 {
+		t.Errorf("Expected all reserve aliens to be deployed, but %d reserve aliens remain", len(world.alienShip))
 	}
-	// Verify that there are no cities with more than one occupant
-	for _, city := range w.cities {
-		if city.occupants[0] != nil && city.occupants[1] != nil {
-			t.Errorf("City %s has more than one occupant", city.name)
-		}
+
+	// assert that all deployed aliens are dead
+	if len(world.aliens) > 0 {
+		t.Errorf("Expected all deployed aliens to be dead, but %d deployed aliens remain alive", len(world.aliens))
 	}
 }

@@ -173,6 +173,9 @@ func oppositeDirection(direction string) string {
 func (w *World) PrintRemainingCities() {
 	// Print out the remaining cities and their neighboring cities
 	fmt.Println("Remaining cities: ")
+	if len(w.cities) == 0 {
+		fmt.Println("none")
+	}
 	for cityName, city := range w.cities {
 		var neighborNames []string
 		for direction, neighborName := range city.neighbors {

@@ -25,7 +25,7 @@ func TestCityInvade(t *testing.T) {
 
 	// Test invading a city with one alien already present
 	city.invade(alien2)
-	if city.occupants[0] == nil || city.occupants[1] == nil {
+	if !city.full {
 		t.Errorf("Expected city to be full, but it's not")
 	}
 }
