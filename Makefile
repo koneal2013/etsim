@@ -6,10 +6,11 @@ start:
 	@make clean
 	@make build
 	@echo "running main program..."
-	@./etsim
+	@./etsim $(ARGS)
 .PHONY: build
 build:
 	@make test
+	@golangci-lint run
 	@go build ./etsimcmd/etsim
 .PHONY: clean
 clean:
