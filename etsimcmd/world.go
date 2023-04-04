@@ -304,12 +304,16 @@ func createAliens(numAliens uint16, cities map[string]*City) (map[*Alien]struct{
 }
 
 func findCityToInvade(cityNames []string, cities map[string]*City) *City {
+	// Loop over the list of city names
 	for _, cityName := range cityNames {
+		// Look up the city in the map
 		city := cities[cityName]
+		// If the city is not full, return it
 		if !city.full {
 			return city
 		}
 	}
 
+	// If there are no cities to invade, return nil
 	return nil
 }
